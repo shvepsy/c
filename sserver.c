@@ -24,7 +24,6 @@
      perror("bind");
      exit(2);
    }
-
    listen(listener, 1);
 
    while(1)
