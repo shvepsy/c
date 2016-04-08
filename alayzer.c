@@ -1,16 +1,19 @@
 #include <stdlib.h>
 #include <stdio.h>
 #include <signal.h>
+#include <string.h>
+#include <unistd.h>
 #include <sys/types.h>
 #include <sys/socket.h>
-#include <netinet/if.h>
+#include <net/if.h>
 #include <netinet/in.h>
 #include <netinet/ip.h>
 #include <netinet/tcp.h>
 #include <linux/ioctl.h>
 #include <linux/if_ether.h>
 #include <linux/if_packet.h>
-#include <iface.h>
+#include <linux/sockios.h>
+#include "iface.h"
 
 /*
   Write to nbook ntoa, l234 struct, recvfrom
@@ -43,7 +46,7 @@ int getifconf( uint8_t *intf, struct ifparam *ifp, int mode )
     return (-1);
   }
   memset((void *)&s, 0, sizeof(struct sockaddr_in));
-  memcpy((void *)&s, (void *)&ifr.ifr_netmask, sizeof(stuct sockaddr));
+  memcpy((void *)&s, (void *)&ifr.ifr_netmask, sizeof(struct sockaddr));
   memcpy((void *)&ifp->mask, (void *)s.sin_addr.s_addr, sizeof(u_long));
 
     /* Getting MTU */
@@ -58,7 +61,7 @@ int getifconf( uint8_t *intf, struct ifparam *ifp, int mode )
     perror("ioctl SIOCGIFINDEX");
     return (-1);
   }
-  ifp->index = ifr.ifr_ifindex
+  ifp->index = ifr.ifr_ifindex;
 
     /* Getting flags */
   setmode:
@@ -68,12 +71,12 @@ int getifconf( uint8_t *intf, struct ifparam *ifp, int mode )
     return (-1);
   }
 
-  if (mode) ifr.ifr_flags |= IFF_PROMISC;
+  if(mode) ifr.ifr_flags |= IFF_PROMISC ;
   else ifr.ifr_flags &= ~(IFF_PROMISC);
 
   /* Flag set */
   if(ioctl(fd, SIOCSIFFLAGS, &ifr) < 0) {
-    perror(SIOCSIFFLAGS);
+    perror("ioctl SIOCSIFFLAGS");
     close(fd);
     return(-1);
   }
@@ -115,7 +118,7 @@ void mode_off()
 }
 
 int main() {
-  uint32_t num;
+  int32_t num;
   int sock_if, rec = 0, ihl = 0;
   struct ethhdr eth;
   struct tcphdr tcp;                    /* l2 l3 l4 headers */
@@ -149,20 +152,29 @@ int main() {
       perror("recvfrom");
       return (-1);
     }
-  memcpy(&eth, buf, ETH_LEN);
-  memcpy(&ip, buf + ETH_LEN, sizeof(struct iphdr));
-  memcpy(&tcp, buf + ETH + sizeof(struct iphdr), sizeof(struct tcphdr));
+    memcpy(&eth, buf, ETH_LEN);
+    memcpy(&ip, buf + ETH_LEN, sizeof(struct iphdr));
+    memcpy(&tcp, buf + ETH + sizeof(struct iphdr), sizeof(struct tcphdr));
 
+      /* Packet information */
+    printf("\n%u\n",num++);
 
+    printf("%.2x:%.2x:%.2x:%.2x:%.2x:%.2x\t->\t",
+    eth.h_source[0], eth.h_source[1], eth.h_source[2],
+    eth.h_source[3], eth.h_source[4], eth.h_source[5]);
+
+    printf("%.2x:%.2x:%.2x:%.2x:%.2x:%.2x\n",
+    eth.h_dest[0], eth.h_dest[1], eth.h_dest[2],
+    eth.h_dest[3], eth.h_dest[4], eth.h_dest[5]);
+
+    /* Byte, 5-15 value from 4bit field * 4byte per one */
+    printf("IP header length - %d, ", (ip.ihl * 4));
+    printf("IP total length - %d, ", ntohs(ip.tot_len));
+    if(ip.protocol == IPPROTO_TCP) {
+      printf("TCP, %s:%d -> %s:%d",
+      ntoa(iphdr.saddr), ntohs(tcphdr.source),
+      ntoa(iphdr.daddr), ntohs(tcphdr.dest) );
+    }
   }
-
-
-
-
-
-
-
-
-
-
+  return 0;
 }
