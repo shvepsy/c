@@ -38,7 +38,7 @@ int getifconf( uint8_t *intf, struct ifparam *ifp, int mode )
   }
   memset((void *)&s, 0, sizeof(struct sockaddr_in));
   memcpy((void *)&s, (void *)&ifr.ifr_addr, sizeof(struct sockaddr));
-  memcpy((void *)&ifp->ip, (void *)s.sin_addr.s_addr, sizeof(__u32));
+  memcpy((void *)&ifp->ip, (void *)&s.sin_addr.s_addr, sizeof(__u32));
 
     /* Getting netmask */
   if (ioctl(fd, SIOCGIFNETMASK, &ifr) < 0) {
@@ -47,7 +47,7 @@ int getifconf( uint8_t *intf, struct ifparam *ifp, int mode )
   }
   memset((void *)&s, 0, sizeof(struct sockaddr_in));
   memcpy((void *)&s, (void *)&ifr.ifr_netmask, sizeof(struct sockaddr));
-  memcpy((void *)&ifp->mask, (void *)s.sin_addr.s_addr, sizeof(u_long));
+  memcpy((void *)&ifp->mask, (void *)&s.sin_addr.s_addr, sizeof(u_long));
 
     /* Getting MTU */
   if(ioctl(fd, SIOCGIFMTU, &ifr) < 0) {
@@ -89,18 +89,20 @@ int getsock_recv(int index)
   int sd;
   struct sockaddr_ll s_ll; /* low-level structure for socket */
 
-  if(sd = socket(PF_PACKET, SOCK_RAW, htons(ETH_P_ALL)) < 0 ) return (-1); /* create l2 socket */
+  if(sd = socket(PF_PACKET, SOCK_RAW, htons(ETH_P_ALL)) < 0 ) return (-1);
+  /* create l2 socket */
 
   memset((void *)&s_ll, 0, sizeof(struct sockaddr_ll));
 
-  s_ll.sll_family = AF_PACKET ;
-  s_ll.sll_ifindex = ifp.index ;          /* or just index? */
+  s_ll.sll_family = AF_PACKET;
   s_ll.sll_protocol = htons(ETH_P_ALL);
+  s_ll.sll_ifindex = ifp.index;          /* or just index? */
 
-  if(bind(sd, (struct sockaddr_ll *)&s_ll, sizeof(struct sockaddr_ll)) < 0 ) {
+
+  if(bind(sd, (struct sockaddr *)&s_ll, sizeof(struct sockaddr_ll)) < 0 ) {
+    perror("bind");
     close(sd);
     return (-1);
-
   }
   return sd;
 }
@@ -110,7 +112,7 @@ uint8_t buf[ETH_FRAME_LEN];
 
 void mode_off()
 {
-  if(getifconf("eth0", &ifr, PROMISC_MODE_OFF) < 0) {
+  if(getifconf("eth0", &ifp, PROMISC_MODE_OFF) < 0) {
     perror("getifconf");
     exit(-1);
   }
@@ -130,8 +132,8 @@ int main() {
     return (-1);
   }
 
-  printf("\tCurrent configuration\nIP:\t%s\n", ntoa(ifp.addr));
-  printf("MASK:\t%s\n", ntoa(ifp.mask));
+  printf("\tCurrent configuration\nIP:\t%s\n", inet_ntoa(ifp.ip));
+  printf("MASK:\t%s\n", inet_ntoa(ifp.mask));
   printf("MTU:\t%s\n", ifp.mtu);
   printf("IfIndex:\t", ifp.index);
 
@@ -152,9 +154,9 @@ int main() {
       perror("recvfrom");
       return (-1);
     }
-    memcpy(&eth, buf, ETH_LEN);
-    memcpy(&ip, buf + ETH_LEN, sizeof(struct iphdr));
-    memcpy(&tcp, buf + ETH + sizeof(struct iphdr), sizeof(struct tcphdr));
+    memcpy(&eth, buf, ETH_HLEN);
+    memcpy(&ip, buf + ETH_HLEN, sizeof(struct iphdr));
+    memcpy(&tcp, buf + ETH_HLEN + sizeof(struct iphdr), sizeof(struct tcphdr));
 
       /* Packet information */
     printf("\n%u\n",num++);
@@ -172,8 +174,8 @@ int main() {
     printf("IP total length - %d, ", ntohs(ip.tot_len));
     if(ip.protocol == IPPROTO_TCP) {
       printf("TCP, %s:%d -> %s:%d",
-      ntoa(iphdr.saddr), ntohs(tcphdr.source),
-      ntoa(iphdr.daddr), ntohs(tcphdr.dest) );
+      inet_ntoa(ip.saddr), ntohs(tcp.source),
+      inet_ntoa(ip.daddr), ntohs(tcp.dest) );
     }
   }
   return 0;
