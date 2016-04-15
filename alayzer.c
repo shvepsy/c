@@ -89,18 +89,18 @@ int getsock_recv(int index)
 {
   int sd;
   struct sockaddr_ll s_ll; /* low-level structure for socket */
-
-  if(sd = socket(PF_PACKET, SOCK_RAW, htons(ETH_P_ALL)) < 0 ) return (-1);
+  sd = socket(PF_PACKET, SOCK_RAW, htons(ETH_P_ALL));
+  if( sd < 0 ) return (-1);
   /* create l2 socket */
 
   memset((void *)&s_ll, 0, sizeof(struct sockaddr_ll));
 
-  s_ll.sll_family = AF_PACKET;
+  s_ll.sll_family = PF_PACKET;
   s_ll.sll_protocol = htons(ETH_P_ALL);
-  s_ll.sll_ifindex = ifp.index;          /* or just index? */
+  s_ll.sll_ifindex = index;          /* or just index? */
 
 
-  if(bind(sd, (struct sockaddr *)&s_ll, sizeof(struct sockaddr_ll)) < 0 ) {
+  if((bind(sd, (struct sockaddr *)&s_ll, sizeof(struct sockaddr_ll))) < 0 ) {
     //perror("bind");
     close(sd);
     return (-1);
@@ -113,7 +113,7 @@ uint8_t buf[ETH_FRAME_LEN];
 
 void mode_off()
 {
-  if(getifconf("eth0", &ifp, PROMISC_MODE_OFF) < 0) {
+  if(getifconf("wlan0", &ifp, PROMISC_MODE_OFF) < 0) {
     perror("getifconf");
     exit(-1);
   }
@@ -128,7 +128,7 @@ int main() {
   struct iphdr ip;
   static struct sigaction act;          /* from <signal.h> to override SIGINT (remove promisc flag) */
 
-  if(getifconf("eth0", &ifp, PROMISC_MODE_ON) < 0 ) {
+  if(getifconf("wlan0", &ifp, PROMISC_MODE_ON) < 0 ) {
     perror("getifconf");
     return (-1);
   }
