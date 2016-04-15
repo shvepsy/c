@@ -6,6 +6,7 @@
 #include <sys/types.h>
 #include <sys/socket.h>
 #include <net/if.h>
+#include <arpa/inet.h>
 #include <netinet/in.h>
 #include <netinet/ip.h>
 #include <netinet/tcp.h>
@@ -100,7 +101,7 @@ int getsock_recv(int index)
 
 
   if(bind(sd, (struct sockaddr *)&s_ll, sizeof(struct sockaddr_ll)) < 0 ) {
-    perror("bind");
+    //perror("bind");
     close(sd);
     return (-1);
   }
@@ -131,11 +132,13 @@ int main() {
     perror("getifconf");
     return (-1);
   }
-
-  printf("\tCurrent configuration\nIP:\t%s\n", inet_ntoa(ifp.ip));
-  printf("MASK:\t%s\n", inet_ntoa(ifp.mask));
-  printf("MTU:\t%s\n", ifp.mtu);
-  printf("IfIndex:\t", ifp.index);
+  //char *ipa = (char *);
+  //struct in_addr ipa =;
+  printf("\n===== Current configuration ===== \nIP:\t%s\n",
+    inet_ntoa(*(struct in_addr *)&ifp.ip));
+  printf("MASK:\t%s\n", inet_ntoa(*(struct in_addr *)&ifp.mask));
+  printf("MTU:\t%d\n", ifp.mtu);
+  printf("IIndex:\t%d\n\n", ifp.index);
 
   if(sock_if = getsock_recv(ifp.index) < 0) {
     perror("getsock_recv");
@@ -172,10 +175,14 @@ int main() {
     /* Byte, 5-15 value from 4bit field * 4byte per one */
     printf("IP header length - %d, ", (ip.ihl * 4));
     printf("IP total length - %d, ", ntohs(ip.tot_len));
+    /*struct in_addr saddr;
+    struct in_addr daddr;
+    saddr = *(struct in_addr *)&ip.saddr;
+    daddr = *(struct in_addr *)&ip.daddr; */
     if(ip.protocol == IPPROTO_TCP) {
-      printf("TCP, %s:%d -> %s:%d",
-      inet_ntoa(ip.saddr), ntohs(tcp.source),
-      inet_ntoa(ip.daddr), ntohs(tcp.dest) );
+      printf("TCP, %-15s:%d -> %-15s:%d",
+      inet_ntoa(*(struct in_addr *)&ip.saddr), ntohs(tcp.source),
+      inet_ntoa(*(struct in_addr *)&ip.daddr), ntohs(tcp.dest) );
     }
   }
   return 0;

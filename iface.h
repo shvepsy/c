@@ -4,8 +4,8 @@
 #include <linux/types.h>
 
 struct ifparam {
-  __u32 ip;   // IP address
-  __u32 mask; // subnet mask
+  u_int32_t ip;   // IP address
+  u_int32_t mask; // subnet mask
   int mtu;    // MTU size
   int index;  // iface index
 } ifp;
