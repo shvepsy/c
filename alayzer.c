@@ -97,7 +97,7 @@ int getsock_recv(int index)
 
   s_ll.sll_family = AF_PACKET;
   s_ll.sll_protocol = htons(ETH_P_ALL);
-  s_ll.sll_ifindex = ifp.index;          /* or just index? */
+  s_ll.sll_ifindex = index;          /* or just index? */
 
 
   if(bind(sd, (struct sockaddr *)&s_ll, sizeof(struct sockaddr_ll)) < 0 ) {
