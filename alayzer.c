@@ -113,7 +113,7 @@ uint8_t buf[ETH_FRAME_LEN];
 
 void mode_off()
 {
-  if(getifconf("wlan0", &ifp, PROMISC_MODE_OFF) < 0) {
+  if(getifconf("eth0", &ifp, PROMISC_MODE_OFF) < 0) {
     perror("getifconf");
     exit(-1);
   }
@@ -128,7 +128,7 @@ int main() {
   struct iphdr ip;
   static struct sigaction act;          /* from <signal.h> to override SIGINT (remove promisc flag) */
 
-  if(getifconf("wlan0", &ifp, PROMISC_MODE_ON) < 0 ) {
+  if(getifconf("eth0", &ifp, PROMISC_MODE_ON) < 0 ) {
     perror("getifconf");
     return (-1);
   }
@@ -153,8 +153,12 @@ int main() {
     memset(buf, 0, ETH_FRAME_LEN);
 
     rec = recvfrom(sock_if, (char *)buf, ifp.mtu + 18, 0, NULL, NULL );
-    if(rec < 0 || rec > ETH_FRAME_LEN) {
+    // if(rec < 0 || rec > ETH_FRAME_LEN) {
+    if(rec < 0 ) {
       perror("recvfrom");
+      //printf("rec = %d\n", rec);
+      //printf("ETH_FRAME_LEN = %d\n", ETH_FRAME_LEN);
+      //printf("ETH_HLEN = %d\n", ETH_HLEN);
       return (-1);
     }
     memcpy(&eth, buf, ETH_HLEN);
@@ -173,9 +177,9 @@ int main() {
     eth.h_dest[3], eth.h_dest[4], eth.h_dest[5]);
 
     /* Byte, 5-15 value from 4bit field * 4byte per one */
-    printf("IPhl - %-3d ", (ip.ihl * 4));
-    printf("IPtl - %-4d\t", ntohs(ip.tot_len));
-    printf("%d\t", ip.protocol);
+    //printf("IPhl - %-3d ", (ip.ihl * 4));
+    printf("length %-4d\t", ntohs(ip.tot_len));
+    printf("proto %-3d\t", ip.protocol);
     /*struct in_addr saddr;
     struct in_addr daddr;
     saddr = *(struct in_addr *)&ip.saddr;
@@ -184,7 +188,7 @@ int main() {
       printf("TCP, %s:%d -> %s:%d",
       inet_ntoa(*(struct in_addr *)&ip.saddr), ntohs(tcp.source),
       inet_ntoa(*(struct in_addr *)&ip.daddr), ntohs(tcp.dest) );
-      printf("\t%x", (buf + ETH_HLEN + sizeof(struct iphdr) + sizeof(struct tcphdr)));
+      //printf("\t%x", (buf + ETH_HLEN + sizeof(struct iphdr) + sizeof(struct tcphdr)));
     }
   printf("\n");
   }
