@@ -89,18 +89,18 @@ int getsock_recv(int index)
 {
   int sd;
   struct sockaddr_ll s_ll; /* low-level structure for socket */
-
-  if(sd = socket(PF_PACKET, SOCK_RAW, htons(ETH_P_ALL)) < 0 ) return (-1);
+  sd = socket(PF_PACKET, SOCK_RAW, htons(ETH_P_ALL));
+  if( sd < 0 ) return (-1);
   /* create l2 socket */
 
   memset((void *)&s_ll, 0, sizeof(struct sockaddr_ll));
 
-  s_ll.sll_family = AF_PACKET;
+  s_ll.sll_family = PF_PACKET;
   s_ll.sll_protocol = htons(ETH_P_ALL);
   s_ll.sll_ifindex = index;          /* or just index? */
 
 
-  if(bind(sd, (struct sockaddr *)&s_ll, sizeof(struct sockaddr_ll)) < 0 ) {
+  if((bind(sd, (struct sockaddr *)&s_ll, sizeof(struct sockaddr_ll))) < 0 ) {
     //perror("bind");
     close(sd);
     return (-1);
@@ -113,7 +113,7 @@ uint8_t buf[ETH_FRAME_LEN];
 
 void mode_off()
 {
-  if(getifconf("eth0", &ifp, PROMISC_MODE_OFF) < 0) {
+  if(getifconf("wlan0", &ifp, PROMISC_MODE_OFF) < 0) {
     perror("getifconf");
     exit(-1);
   }
@@ -128,7 +128,7 @@ int main() {
   struct iphdr ip;
   static struct sigaction act;          /* from <signal.h> to override SIGINT (remove promisc flag) */
 
-  if(getifconf("eth0", &ifp, PROMISC_MODE_ON) < 0 ) {
+  if(getifconf("wlan0", &ifp, PROMISC_MODE_ON) < 0 ) {
     perror("getifconf");
     return (-1);
   }
@@ -140,7 +140,7 @@ int main() {
   printf("MTU:\t%d\n", ifp.mtu);
   printf("IIndex:\t%d\n\n", ifp.index);
 
-  if(sock_if = getsock_recv(ifp.index) < 0) {
+  if((sock_if = getsock_recv(ifp.index)) < 0) {
     perror("getsock_recv");
     return (-1);
   }
@@ -162,28 +162,31 @@ int main() {
     memcpy(&tcp, buf + ETH_HLEN + sizeof(struct iphdr), sizeof(struct tcphdr));
 
       /* Packet information */
-    printf("\n%u\n",num++);
+    printf("%-4u ",num++);
 
-    printf("%.2x:%.2x:%.2x:%.2x:%.2x:%.2x\t->\t",
+    printf("%.2x:%.2x:%.2x:%.2x:%.2x:%.2x -> ",
     eth.h_source[0], eth.h_source[1], eth.h_source[2],
     eth.h_source[3], eth.h_source[4], eth.h_source[5]);
 
-    printf("%.2x:%.2x:%.2x:%.2x:%.2x:%.2x\n",
+    printf("%.2x:%.2x:%.2x:%.2x:%.2x:%.2x\t",
     eth.h_dest[0], eth.h_dest[1], eth.h_dest[2],
     eth.h_dest[3], eth.h_dest[4], eth.h_dest[5]);
 
     /* Byte, 5-15 value from 4bit field * 4byte per one */
-    printf("IP header length - %d, ", (ip.ihl * 4));
-    printf("IP total length - %d, ", ntohs(ip.tot_len));
+    printf("IPhl - %-3d ", (ip.ihl * 4));
+    printf("IPtl - %-4d\t", ntohs(ip.tot_len));
+    printf("%d\t", ip.protocol);
     /*struct in_addr saddr;
     struct in_addr daddr;
     saddr = *(struct in_addr *)&ip.saddr;
     daddr = *(struct in_addr *)&ip.daddr; */
     if(ip.protocol == IPPROTO_TCP) {
-      printf("TCP, %-15s:%d -> %-15s:%d",
+      printf("TCP, %s:%d -> %s:%d",
       inet_ntoa(*(struct in_addr *)&ip.saddr), ntohs(tcp.source),
       inet_ntoa(*(struct in_addr *)&ip.daddr), ntohs(tcp.dest) );
+      printf("\t%x", (buf + ETH_HLEN + sizeof(struct iphdr) + sizeof(struct tcphdr)));
     }
+  printf("\n");
   }
   return 0;
 }
