@@ -16,9 +16,10 @@
 #include <netinet/tcp.h>
 #include <netinet/in.h>
 #include <linux/if_packet.h>
-#define DEF_IF_NAME "wlan0"
+#define DEF_IF_NAME "eth0"
 #define PROMISC_ON 1
 #define PROMISC_OFF 0
+#define HEADERS_LEN (sizeof(struct tcphdr) + sizeof(struct iphdr) + sizeof(struct tcphdr))
 
 struct ifparam {
   uint32_t ip;
@@ -114,6 +115,7 @@ int main( int argc, char *argv[] )
 {
   int rec = 0, sock_if;
   uint8_t buf[ETH_FRAME_LEN];
+  uint8_t data[(ETH_FRAME_LEN-HEADERS_LEN)];
   uint32_t num;
   struct ethhdr ehdr;
   struct iphdr ihdr;
@@ -130,7 +132,10 @@ int main( int argc, char *argv[] )
     return (-1);
   }
 
-  printf("\nCurrent conf:%s %s\nMTU:%d\nIfIndex: %d", inet_ntoa(*(struct in_addr *)&ifp.ip), inet_ntoa(*(struct in_addr *)&ifp.mask), ifp.mtu, ifp.index);
+  printf("\nCurrent conf: %s/", inet_ntoa(*(struct in_addr *)&ifp.ip));
+  printf("%s\nMTU: %d\n", inet_ntoa(*(struct in_addr *)&ifp.mask), ifp.mtu);
+  printf("IfIndex: %d\n", ifp.index);
+  //printf("\nCurrent conf:%s %s\nMTU:%d\nIfIndex: %d", inet_ntoa(*(struct in_addr *)&ifp.ip), inet_ntoa(*(struct in_addr *)&ifp.mask), ifp.mtu, ifp.index);
 
   if ((sock_if = getsock(ifp.index)) < 0) {
     perror("getsock");
@@ -140,18 +145,21 @@ int main( int argc, char *argv[] )
   for (;;) {
     //memset(buf, 0, sizeof(ETH_FRAME_LEN));
     memset(buf, 0, sizeof(ETH_FRAME_LEN));
+    memset(data, 0, sizeof(ETH_FRAME_LEN-HEADERS_LEN));
+    //int *pbuf = buf;
     rec = recvfrom(sock_if, (char *)&buf, ifp.mtu + 18, 0, NULL, NULL);
     if (rec < 0) {
       perror("recvfrom");
       return (-1);
     }
     memcpy((void *)&ehdr, buf, sizeof(struct ethhdr));
-    memcpy((void *)&ihdr, buf + (sizeof(struct iphdr)), sizeof(struct iphdr));
-    memcpy((void *)&thdr, buf + (sizeof(struct tcphdr)) + (sizeof(struct iphdr)), sizeof(struct tcphdr));
+    memcpy((void *)&ihdr, buf + sizeof(struct iphdr), sizeof(struct iphdr));
+    memcpy((void *)&thdr, buf + sizeof(struct tcphdr) + sizeof(struct iphdr), sizeof(struct tcphdr));
+    memcpy((void *)&data, buf + HEADERS_LEN, (ETH_FRAME_LEN-HEADERS_LEN) );
     /* dig output */
-    printf("%d %s:%s:%s:%s:%s:%s ->", num, ehdr.h_source[0], ehdr.h_source[1], ehdr.h_source[2], ehdr.h_source[3], ehdr.h_source[4], ehdr.h_source[5]);
-    printf(" %s:%s:%s:%s:%s:%s\t", num, ehdr.h_dest[0], ehdr.h_dest[1], ehdr.h_dest[2], ehdr.h_dest[3], ehdr.h_dest[4], ehdr.h_dest[5]);
-    printf("%s:%d -> %s:%d\t%s\n", inet_ntoa(*(struct in_addr *)&ihdr.saddr), ntohs(thdr.source), inet_ntoa(*(struct in_addr *)&ihdr.daddr), ntohs(thdr.dest));
+    printf("%d %.2x:%.2x:%.2x:%.2x:%.2x:%.2x ->", num, ehdr.h_source[0], ehdr.h_source[1], ehdr.h_source[2], ehdr.h_source[3], ehdr.h_source[4], ehdr.h_source[5]);
+    printf(" %.2x:%.2x:%.2x:%.2x:%.2x:%.2x\t", ehdr.h_dest[0], ehdr.h_dest[1], ehdr.h_dest[2], ehdr.h_dest[3], ehdr.h_dest[4], ehdr.h_dest[5]);
+    printf("%15s:%-5.d ->  %s:%d\t%d\n\n%s\n\n", inet_ntoa(*(struct in_addr *)&ihdr.saddr), ntohs(thdr.source), inet_ntoa(*(struct in_addr *)&ihdr.daddr), ntohs(thdr.dest), data);
     // printf("%s ")
     num++;
   }
